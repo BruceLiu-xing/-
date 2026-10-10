@@ -6,7 +6,18 @@
 
 当前地址：<http://127.0.0.1:5173/>。
 
-本机可以双击 `启动预览.command`。它会在后台启动预览并打开浏览器，关闭终端窗口不会停止网站；如果服务已经在运行，会直接复用。电脑重启后再双击一次即可。启动日志保存在 `.preview/vite.log`。
+本机预览已改由 macOS 用户后台服务管理：登录后自动启动，进程退出后自动恢复，仅监听本机 `127.0.0.1:5173`。关闭终端或 Codex 不会停止此服务。电脑关机或休眠时无法访问，唤醒并登录后再打开上述地址。
+
+也可以双击 `启动预览.command`，它会检查并恢复服务，再打开浏览器。后台服务日志保存在 `~/Library/Logs/LiuShengxingPortfolio/vite.log`；普通后台预览日志保存在 `.preview/vite.log`。
+
+服务配置位于 `~/Library/LaunchAgents/cn.liushengxing.portfolio.preview.plist`。更换项目位置或 Node 路径后，使用当前 Node 运行 `node scripts/install-preview-service.mjs` 更新配置。其他电脑未安装该服务时，双击启动脚本仍会使用普通后台预览。
+
+如需停止预览并关闭登录启动，可在终端执行以下两行；以后双击启动脚本会重新启用：
+
+```sh
+launchctl disable "gui/$(id -u)/cn.liushengxing.portfolio.preview"
+launchctl bootout "gui/$(id -u)/cn.liushengxing.portfolio.preview"
+```
 
 安装了 Node.js 20.19+ 或 22.12+ 的电脑也可以运行：
 
@@ -23,6 +34,14 @@ npm run preview
 ```
 
 构建文件位于 `dist/`。本次交付为本地预览，未部署到公网。
+
+### Cloudflare Pages 部署
+
+构建命令填写 `npm run build`，输出目录填写 `dist`。Pages 的限制是每个文件最多 25 MiB，整个网站可以大于 25 MiB。三段大视频已使用完整时长的网页压缩版，每段约 23 MiB；案例保留原 AAC 音轨，背景视频保持静音。更新后的 `public/media/` 文件需要一起同步到部署仓库。
+
+每次构建结束会自动运行 `scripts/check-assets.mjs`，超过限制时列出具体文件并停止。也可运行 `node scripts/check-assets.mjs public` 提前检查源素材。
+
+`scripts/optimize-media-for-pages.py` 使用 FFmpeg 两遍编码压缩三段视频，默认读取 `.preview/media-tools/bin/` 中的 FFmpeg/FFprobe，也可通过 `PORTFOLIO_FFMPEG`、`PORTFOLIO_FFPROBE` 指定路径。转换前的网页版本保存在 `.preview/pages-media/`，用户原始视频保持不变；备份和工具已被 Git 忽略，不会进入部署。重新运行 `scripts/prepare-video-cases.py` 也会调用这一步，避免再次生成超限素材。
 
 ## 页面与功能
 
@@ -48,7 +67,7 @@ npm run preview
 - `public/evidence/`：业绩图片原件与轻量缩略图。
 - `scripts/import-evidence.py`：重新导入业绩目录中的图片并生成清单与缩略图，需要 Python 和 Pillow。
 
-首页背景为 `public/media/hero-underground.mp4`，`hero-underground-poster.webp` 是加载前的封面。视频由用户提供的《地下世界》转为 H.264 MP4，保留完整约 3 分 45 秒时长，900 × 1600、24 fps、无音轨，并启用 faststart。竖屏画面在头图中居中裁切铺满，配合原有暗色遮罩；源 MOV 文件未修改。
+首页背景为 `public/media/hero-underground.mp4`，`hero-underground-poster.webp` 是加载前的封面。视频由用户提供的《地下世界》转为 H.264 MP4，保留完整约 3 分 45 秒时长，720 × 1280、24 fps、无音轨，并启用 faststart。竖屏画面在头图中居中裁切铺满，配合原有暗色遮罩；源 MOV 文件未修改。两支案例网页版本同为 720 × 1280、24 fps，保留完整时长与原声音轨。
 
 ## 素材和数据来源
 

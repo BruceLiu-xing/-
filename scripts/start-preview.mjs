@@ -1,5 +1,6 @@
-import { spawn } from "node:child_process";
-import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -8,6 +9,8 @@ const project = fileURLToPath(new URL("../", import.meta.url));
 const url = "http://127.0.0.1:5173/";
 const stateDir = join(project, ".preview");
 const logPath = join(stateDir, "vite.log");
+const label = "cn.liushengxing.portfolio.preview";
+const plistPath = join(homedir(), "Library/LaunchAgents", `${label}.plist`);
 
 async function isReady() {
   try {
@@ -18,7 +21,23 @@ async function isReady() {
   }
 }
 
-if (await isReady()) {
+if (process.platform === "darwin" && existsSync(plistPath) && !process.argv.includes("--standalone")) {
+  const domain = `gui/${process.getuid()}`;
+  const service = `${domain}/${label}`;
+  const launchctl = (...args) => execFileSync("/bin/launchctl", args, { stdio: ["ignore", "pipe", "pipe"] });
+  launchctl("enable", service);
+  let loaded = false;
+  try { launchctl("print", service); loaded = true; } catch {}
+  if (!loaded) launchctl("bootstrap", domain, plistPath);
+  launchctl("kickstart", service);
+  let ready = false;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    if (await isReady()) { ready = true; break; }
+    await delay(250);
+  }
+  if (!ready) throw new Error(`预览服务尚未就绪，请检查 ${join(homedir(), "Library/Logs/LiuShengxingPortfolio/vite.log")}`);
+  console.log(`作品集预览服务已就绪：${url}\n由 macOS 管理，登录后自动启动，服务退出后自动恢复。`);
+} else if (await isReady()) {
   console.log(`作品集预览已在运行：${url}`);
 } else {
   mkdirSync(stateDir, { recursive: true });

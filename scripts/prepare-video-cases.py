@@ -7,13 +7,14 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 FFMPEG = os.environ.get(
     "PORTFOLIO_FFMPEG",
-    "/private/tmp/liuxing-media-tools/node_modules/@ffmpeg-installer/darwin-arm64/ffmpeg",
+    str(ROOT / ".preview/media-tools/bin/ffmpeg"),
 )
 WORK = Path("/private/tmp/portfolio-video-cases")
 OUT = ROOT / "public/media/video-cases"
@@ -85,6 +86,13 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(prepare, CASES))
+    subprocess.run([sys.executable, str(ROOT / "scripts/optimize-media-for-pages.py")], check=True)
+    optimized = json.loads((ROOT / "artifacts/pages-media-report.json").read_text())
+    for result in results:
+        entry = next(item for item in optimized if item["path"] == result["src"].lstrip("/"))
+        result.update({key: entry[key] for key in (
+            "bytes", "width", "height", "fps", "fastStartVerified", "originalAudioPreserved"
+        ) if key in entry})
     manifest = ROOT / "artifacts/video-cases-manifest.json"
     manifest.write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n")
     print(f"Manifest: {manifest}", flush=True)
